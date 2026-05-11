@@ -3,20 +3,24 @@
 **Repository Selected:** `aio-libs/aiokafka`  
 **Repository URL:** https://github.com/aio-libs/aiokafka
 
+---
+
 ## Overview of All 10 PRs Reviewed
 
-| PR# | Title | Status | Complexity | Link |
-|---|---|---|---|---|
-| #1006 | Add typing to aiokafka/coordinator/* | Open | Medium | [PR #1006](https://github.com/aio-libs/aiokafka/pull/1006) |
-| #115 | Fix for compacted topics (skipped offsets) | Merged | Medium | [PR #115](https://github.com/aio-libs/aiokafka/pull/115) |
-| #143 | Added metadata change listener if group_id is None | Merged | Low-Medium | [PR #143](https://github.com/aio-libs/aiokafka/pull/143) |
-| #193 | Added `seek_to_beginning` and `seek_to_end` API | Merged | Low | [PR #193](https://github.com/aio-libs/aiokafka/pull/193) |
-| #196 | Added separate socket groups to client | Merged | High | [PR #196](https://github.com/aio-libs/aiokafka/pull/196) |
-| #201 | Added `search_for_times` API (offset by timestamp) | Merged | Medium | [PR #201](https://github.com/aio-libs/aiokafka/pull/201) |
-| #217 | Add lightweight batching interface to AIOKafkaProducer | Merged | High | [PR #217](https://github.com/aio-libs/aiokafka/pull/217) |
-| #232 | Change fetcher to use LegacyRecordBatch instead of MessageSet | Merged | Medium | [PR #232](https://github.com/aio-libs/aiokafka/pull/232) |
-| #237 | Add timestamp to RecordMetadata | Merged | Low-Medium | [PR #237](https://github.com/aio-libs/aiokafka/pull/237) |
-| #25 | Producer batches (early implementation) | Merged | High | [PR #25](https://github.com/aio-libs/aiokafka/pull/25) |
+All 10 pull requests were reviewed. The table below documents each PR, its complexity, and — for those not selected — the reason it was not chosen for deep analysis.
+
+| PR# | Title | Status | Complexity | Selection | Notes |
+|---|---|---|---|---|---|
+| [#1006](https://github.com/aio-libs/aiokafka/pull/1006) | Add typing to `aiokafka/coordinator/*` | Open | Medium-High | Not selected | 24 commits, broad type annotation refactor across coordinator subpackage; no runtime behaviour change |
+| [#115](https://github.com/aio-libs/aiokafka/pull/115) | Fix for compacted topics (skipped offsets) | Merged | Medium | Not selected | Bug fix in `fetcher.py` for sparse offset ranges in compacted topics; requires deep Kafka log compaction knowledge |
+| [#143](https://github.com/aio-libs/aiokafka/pull/143) | Added metadata change listener if group_id is None | Merged | Low-Medium | Not selected | Narrow fix for standalone consumer metadata refresh; smaller scope than selected PRs |
+| [#193](https://github.com/aio-libs/aiokafka/pull/193) | Added `seek_to_beginning` and `seek_to_end` API | Merged | Low | Not selected | 2 commits, simple API addition to `consumer.py`; straightforward but limited depth |
+| [#196](https://github.com/aio-libs/aiokafka/pull/196) | Added separate socket groups to client | Merged | High | ✅ **Selected** | Core concurrency fix; clear problem, clean solution, significant architectural impact |
+| [#201](https://github.com/aio-libs/aiokafka/pull/201) | Added `search_for_times` API (offset by timestamp) | Merged | Medium | Not selected | New consumer API using `OffsetForTimes` Kafka request; interesting but narrower scope |
+| [#217](https://github.com/aio-libs/aiokafka/pull/217) | Add lightweight batching interface to `AIOKafkaProducer` | Merged | High | Not selected | New `create_batch()` / `send_batch()` public API; complex producer state machine interactions make it harder to implement safely |
+| [#232](https://github.com/aio-libs/aiokafka/pull/232) | Change fetcher to use `LegacyRecordBatch` instead of `MessageSet` | Merged | Medium | Not selected | Internal refactor of record parsing layer; requires deep wire protocol knowledge |
+| [#237](https://github.com/aio-libs/aiokafka/pull/237) | Add timestamp to `RecordMetadata` | Merged | Low-Medium | ✅ **Selected** | End-to-end data flow change; clear before/after behaviour, well-scoped file changes |
+| [#25](https://github.com/aio-libs/aiokafka/pull/25) | Producer batches (early implementation) | Merged | High | Not selected | Early producer batching implementation; superseded by later work, complex batch lifecycle logic |
 
 **Selected PRs for Detailed Analysis: #196 and #237**
 
@@ -25,9 +29,10 @@
 ## PR #196: Added Separate Socket Groups to Client
 
 **URL:** https://github.com/aio-libs/aiokafka/pull/196  
-**Author:** tvoinarovskyi  
+**Author:** [tvoinarovskyi](https://github.com/tvoinarovskyi)  
 **Merged:** July 31, 2017  
-**Branch:** `coordinator_separate_sock` → `master`
+**Branch:** `coordinator_separate_sock` → `master`  
+**Commits:** 2 ([`b25f94d`](https://github.com/aio-libs/aiokafka/pull/196/commits/b25f94d1e48d7872cfb4a1fb3341ac95d3e2ea49), [`70df967`](https://github.com/aio-libs/aiokafka/pull/196/commits/70df9672ba4cf98586502a038e7a93da01b74c5b))
 
 ---
 
@@ -39,10 +44,9 @@ This pull request solves a critical performance bottleneck in aiokafka's network
 
 ### Technical Changes
 
-- **[`aiokafka/client.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/client.py)** — Core `AIOKafkaClient` modified to support socket groups. Connection management logic extended so the internal map keys on `(node_id, group_name)` tuples instead of just `node_id`. Coverage impact: `98.43% <96.29%> (+0.46%)`.
+- **[`aiokafka/client.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/client.py)** — Core `AIOKafkaClient` modified to support socket groups. Connection management extended so the internal map keys on `(node_id, group_name)` tuples instead of just `node_id`. Coverage: `98.43% <96.29%> (+0.46%)`.
 - **[`aiokafka/coordinator/group_coordinator.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/coordinator/group_coordinator.py)** — `GroupCoordinator` updated to use the dedicated `COORDINATION` socket group for all coordinator-bound requests, preventing fetch request blocking. Coverage: `93.9% <100%>`.
-- Two commits: [`b25f94d`](https://github.com/aio-libs/aiokafka/pull/196/commits/b25f94d1e48d7872cfb4a1fb3341ac95d3e2ea49) ("Added separate socket groups to client") and [`70df967`](https://github.com/aio-libs/aiokafka/pull/196/commits/70df9672ba4cf98586502a038e7a93da01b74c5b) ("Made coordinator operate in COORDINATION socket group").
-- Fixes GitHub issues: **[#137](https://github.com/aio-libs/aiokafka/issues/137)** ("Consumer and Coordinator should use a separate socket") and **[#128](https://github.com/aio-libs/aiokafka/issues/128)** ("Slow commit").
+- Fixes [issue #137](https://github.com/aio-libs/aiokafka/issues/137) ("Consumer and Coordinator should use a separate socket") and [issue #128](https://github.com/aio-libs/aiokafka/issues/128) ("Slow commit").
 
 ---
 
@@ -50,7 +54,7 @@ This pull request solves a critical performance bottleneck in aiokafka's network
 
 The solution introduces named socket groups within `AIOKafkaClient`. Rather than mapping a broker node ID directly to a single socket, the client now maps a `(node_id, group_name)` tuple to a connection. Two groups are defined: a default group for fetch and other data requests, and a `COORDINATION` group reserved exclusively for group coordinator communications.
 
-When `GroupCoordinator` sends any request — offset commits, heartbeats, join group, leave group, sync group — it explicitly specifies the `COORDINATION` group, guaranteeing these requests travel over a separate TCP connection that cannot be blocked by a pending long-polling fetch operation on the same broker. This pattern is conceptually similar to how the Java Kafka client separates network channels by type.
+When `GroupCoordinator` sends any request — offset commits, heartbeats, join group, leave group, sync group — it explicitly specifies the `COORDINATION` group, guaranteeing these requests travel over a separate TCP connection that cannot be blocked by a pending long-polling fetch operation on the same broker. This pattern is conceptually similar to how the Java Kafka client separates network channels by traffic type.
 
 The change is backward-compatible: the default socket group behavior remains unchanged for producers and standalone consumers. The PR includes tests verifying the new grouping behavior, maintaining overall coverage above pre-PR levels.
 
@@ -58,7 +62,7 @@ The change is backward-compatible: the default socket group behavior remains unc
 
 ### Potential Impact
 
-This change directly improves consumer group coordination responsiveness. Before the fix, offset commits could be delayed by up to 500ms in high-throughput scenarios, potentially causing rebalances from missed heartbeat deadlines. After the fix, commit latency is fully decoupled from fetch latency. The [`AIOKafkaClient`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/client.py) and [`GroupCoordinator`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/coordinator/group_coordinator.py) are the primary affected components. Any code that mocks or inspects socket connections in tests would also need updates. This is a network-layer change with no impact on the public consumer or producer API surface.
+This change directly improves consumer group coordination responsiveness. Before the fix, offset commits could be delayed by up to 500ms in high-throughput scenarios, potentially causing rebalances from missed heartbeat deadlines. After the fix, commit latency is fully decoupled from fetch latency. The [`AIOKafkaClient`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/client.py) and [`GroupCoordinator`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/coordinator/group_coordinator.py) are the primary affected components. Any test code that mocks or inspects socket connections to the same broker node would also need updating. This is a network-layer change with no impact on the public consumer or producer API surface.
 
 ---
 
@@ -67,9 +71,10 @@ This change directly improves consumer group coordination responsiveness. Before
 ## PR #237: Add Timestamp to RecordMetadata
 
 **URL:** https://github.com/aio-libs/aiokafka/pull/237  
-**Author:** tvoinarovskyi  
+**Author:** [tvoinarovskyi](https://github.com/tvoinarovskyi)  
 **Merged:** October 16, 2017  
-**Branch:** `add_produce_timestamp` → `master`
+**Branch:** `add_produce_timestamp` → `master`  
+**Commits:** 1 ([`85e8c2b`](https://github.com/aio-libs/aiokafka/pull/237/commits/85e8c2b975227e039a7c8850340be365dd55e3d8))
 
 ---
 
@@ -87,14 +92,13 @@ This pull request addresses [issue #218](https://github.com/aio-libs/aiokafka/is
 - **[`aiokafka/producer/message_accumulator.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/producer/message_accumulator.py)** — Updated to carry timestamp through the batch completion pipeline. Coverage: `98.43% <95.34%>`.
 - **[`aiokafka/util.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/util.py)** — Minor utility update. Coverage: `100% <100%>`.
 - **[`aiokafka/consumer/fetcher.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/consumer/fetcher.py)** — Minor adjustment in how record batches expose timestamp data. Coverage: `98.26%`.
-- One commit: [`85e8c2b`](https://github.com/aio-libs/aiokafka/pull/237/commits/85e8c2b975227e039a7c8850340be365dd55e3d8) ("Add timestamp field to produce result metadata").
-- Fixes issue **[#218](https://github.com/aio-libs/aiokafka/issues/218)**.
+- Fixes [issue #218](https://github.com/aio-libs/aiokafka/issues/218).
 
 ---
 
 ### Implementation Approach
 
-The implementation traces the timestamp from the raw Kafka wire format all the way up to the user-facing API. The Kafka produce response (API version ≥ 2, message format v1) includes a per-partition `log_append_time` or producer-set timestamp. The PR modifies [`legacy_records.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/record/legacy_records.py) to parse this value from the record batch. Changes to [`message_accumulator.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/producer/message_accumulator.py) ensure that when a batch is acknowledged by the broker, the timestamp is stored alongside the offset in the batch's completion future. Finally, [`producer.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/producer/producer.py) reads this value when constructing `RecordMetadata`. The timestamp is always sourced from the server's response — never computed client-side — ensuring accuracy regardless of client clock drift. This end-to-end tracing approach is the appropriate pattern for surfacing broker metadata to callers.
+The implementation traces the timestamp from the raw Kafka wire format all the way up to the user-facing API. The Kafka produce response (API version ≥ 2, message format v1) includes a per-partition `log_append_time` or producer-set timestamp. The PR modifies [`legacy_records.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/record/legacy_records.py) to parse this value from the record batch. Changes to [`message_accumulator.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/producer/message_accumulator.py) ensure that when a batch is acknowledged by the broker, the timestamp is stored alongside the offset in the batch's completion future. Finally, [`producer.py`](https://github.com/aio-libs/aiokafka/blob/master/aiokafka/producer/producer.py) reads this value when constructing `RecordMetadata`. The timestamp is always sourced from the server's response — never computed client-side — ensuring accuracy regardless of client clock drift.
 
 ---
 
