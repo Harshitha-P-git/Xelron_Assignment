@@ -12,11 +12,11 @@ Five repositories were examined across different domains. The analysis below ide
 
 | Repository | Primary Language | Python % | Python-Primary? |
 |---|---|---|---|
-| [`aio-libs/aiokafka`](https://github.com/aio-libs/aiokafka) | Python | 93.3% | ✅ YES |
-| [`airbytehq/airbyte`](https://github.com/airbytehq/airbyte) | Python + Kotlin | 48.8% Python / 41.9% Kotlin | ❌ NO |
-| [`artefactual/archivematica`](https://github.com/artefactual/archivematica) | Python | 83.1% | ✅ YES |
-| [`beetbox/beets`](https://github.com/beetbox/beets) | Python | 96.4% | ✅ YES |
-| [`FoundationAgents/MetaGPT`](https://github.com/FoundationAgents/MetaGPT) | Python | 97.5% | ✅ YES |
+| [`aio-libs/aiokafka`](https://github.com/aio-libs/aiokafka) | Python | 93.3% |  YES |
+| [`airbytehq/airbyte`](https://github.com/airbytehq/airbyte) | Python + Kotlin | 48.8% Python / 41.9% Kotlin |  NO |
+| [`artefactual/archivematica`](https://github.com/artefactual/archivematica) | Python | 83.1% |  YES |
+| [`beetbox/beets`](https://github.com/beetbox/beets) | Python | 96.4% |  YES |
+| [`FoundationAgents/MetaGPT`](https://github.com/FoundationAgents/MetaGPT) | Python | 97.5% |  YES |
 
 **Result:** Repositories 1, 3, 4, and 5 are strictly Python-based. Repository 2 (airbyte) is a multi-language project where Kotlin plays an almost equally dominant role, making it a mixed-language platform rather than a Python-primary project.
 
